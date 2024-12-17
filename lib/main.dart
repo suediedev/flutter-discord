@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme/app_theme.dart';
 import 'screens/auth_wrapper.dart';
-import 'widgets/server_sidebar.dart';
+import 'widgets/server_list.dart';
 import 'widgets/channel_list.dart';
 import 'widgets/chat_view.dart';
 
@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Discord Native',
       theme: AppTheme.darkTheme,
-      home: const AuthWrapper(),
+      home: const MainLayout(),
     );
   }
 }
@@ -36,10 +36,16 @@ class MainLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final session = Supabase.instance.client.auth.currentSession;
+    
+    if (session == null) {
+      return const AuthWrapper();
+    }
+
     return Scaffold(
       body: Row(
         children: [
-          const ServerSidebar(),
+          const ServerList(),
           const ChannelList(),
           const Expanded(
             child: ChatView(),

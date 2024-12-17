@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
+import '../main.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   final VoidCallback onSignUpTap;
@@ -31,10 +33,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await ref.read(authProvider.notifier).signIn(
-            email: _emailController.text,
-            password: _passwordController.text,
-          );
+      await Supabase.instance.client.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+      
+      if (!mounted) return;
+      
+      // Navigate to main layout after successful login
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const MainLayout()),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -99,6 +108,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
                     }
                     return null;
                   },

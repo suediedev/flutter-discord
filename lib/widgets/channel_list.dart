@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/channel.dart';
+import '../models/server.dart';
 import '../providers/server_provider.dart';
 import '../providers/channel_provider.dart';
 import '../services/supabase_service.dart';
@@ -10,15 +11,22 @@ class ChannelList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedServerId = ref.watch(selectedServerProvider);
+    final selectedServer = ref.watch(selectedServerProvider);
     
-    if (selectedServerId == null) {
-      return const Center(
-        child: Text('Select a server to view channels'),
+    if (selectedServer == null) {
+      return Container(
+        width: 240,
+        color: Colors.grey[850],
+        child: const Center(
+          child: Text(
+            'Select a server to view channels',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
       );
     }
 
-    final channelsAsync = ref.watch(channelsProvider(selectedServerId));
+    final channelsAsync = ref.watch(channelsProvider(selectedServer.id));
     final selectedChannelId = ref.watch(selectedChannelProvider);
 
     return Container(
@@ -26,7 +34,7 @@ class ChannelList extends ConsumerWidget {
       color: Colors.grey[850],
       child: Column(
         children: [
-          _buildHeader(context, ref),
+          _buildHeader(context, ref, selectedServer),
           Expanded(
             child: channelsAsync.when(
               data: (channels) {
@@ -56,9 +64,7 @@ class ChannelList extends ConsumerWidget {
                   },
                 );
               },
-              loading: () => const Center(
-                child: CircularProgressIndicator(),
-              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) => Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -72,7 +78,7 @@ class ChannelList extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: () => ref.refresh(channelsProvider(selectedServerId)),
+                      onPressed: () => ref.refresh(channelsProvider(selectedServer.id)),
                       child: const Text('Retry'),
                     ),
                   ],
@@ -85,24 +91,27 @@ class ChannelList extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, WidgetRef ref) {
+  Widget _buildHeader(BuildContext context, WidgetRef ref, Server server) {
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
       color: Colors.grey[900],
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'Channels',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+          Expanded(
+            child: Text(
+              server.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Spacer(),
           IconButton(
             icon: const Icon(Icons.add, color: Colors.white),
-            onPressed: () => _showCreateChannelDialog(context, ref),
+            onPressed: () => _showCreateChannelDialog(context, ref, server.id),
             tooltip: 'Create Channel',
           ),
         ],
@@ -110,10 +119,7 @@ class ChannelList extends ConsumerWidget {
     );
   }
 
-  Future<void> _showCreateChannelDialog(BuildContext context, WidgetRef ref) async {
-    final serverId = ref.read(selectedServerProvider);
-    if (serverId == null) return;
-
+  Future<void> _showCreateChannelDialog(BuildContext context, WidgetRef ref, String serverId) async {
     final nameController = TextEditingController();
     bool isLoading = false;
 
@@ -129,10 +135,14 @@ class ChannelList extends ConsumerWidget {
                 controller: nameController,
                 decoration: const InputDecoration(
                   labelText: 'Channel Name',
-                  hintText: 'Enter channel name',
+                  border: OutlineInputBorder(),
                 ),
                 enabled: !isLoading,
               ),
+              if (isLoading) ...[
+                const SizedBox(height: 16),
+                const CircularProgressIndicator(),
+              ],
             ],
           ),
           actions: [
@@ -144,34 +154,30 @@ class ChannelList extends ConsumerWidget {
               onPressed: isLoading
                   ? null
                   : () async {
+                      final name = nameController.text.trim();
+                      if (name.isEmpty) return;
+
                       setState(() => isLoading = true);
+
                       try {
-                        final channel = await ref
+                        await ref
                             .read(supabaseServiceProvider)
-                            .createChannel(serverId, nameController.text);
+                            .createChannel(serverId, name);
                         if (context.mounted) {
                           Navigator.of(context).pop();
-                          ref.read(selectedChannelProvider.notifier).state = channel.id;
                         }
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error creating channel: $e')),
+                            SnackBar(
+                                content: Text('Error creating channel: $e')),
                           );
                         }
                       } finally {
-                        if (context.mounted) {
-                          setState(() => isLoading = false);
-                        }
+                        setState(() => isLoading = false);
                       }
                     },
-              child: isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Create'),
+              child: const Text('Create'),
             ),
           ],
         ),
@@ -180,9 +186,6 @@ class ChannelList extends ConsumerWidget {
   }
 
   Future<void> _deleteChannel(BuildContext context, WidgetRef ref, Channel channel) async {
-    final serverId = ref.read(selectedServerProvider);
-    if (serverId == null) return;
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -207,7 +210,7 @@ class ChannelList extends ConsumerWidget {
     if (confirmed != true) return;
 
     try {
-      await ref.read(supabaseServiceProvider).deleteChannel(serverId, channel.id);
+      await ref.read(supabaseServiceProvider).deleteChannel(channel.serverId, channel.id);
       if (ref.read(selectedChannelProvider) == channel.id) {
         ref.read(selectedChannelProvider.notifier).state = null;
       }

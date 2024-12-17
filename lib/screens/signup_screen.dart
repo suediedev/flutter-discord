@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
+import '../main.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   final VoidCallback onLoginTap;
@@ -33,11 +35,22 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await ref.read(authProvider.notifier).signUp(
-            email: _emailController.text,
-            password: _passwordController.text,
-            displayName: _displayNameController.text,
-          );
+      final response = await Supabase.instance.client.auth.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        data: {'display_name': _displayNameController.text.trim()},
+      );
+
+      if (!mounted) return;
+
+      if (response.user != null) {
+        // Navigate to main layout after successful signup
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const MainLayout()),
+        );
+      } else {
+        throw Exception('Failed to create user');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,6 +88,21 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 ),
                 const SizedBox(height: 32),
                 TextFormField(
+                  controller: _displayNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Display Name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a display name';
+                    }
+                    return null;
+                  },
+                  enabled: !_isLoading,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
                     labelText: 'Email',
@@ -86,21 +114,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     }
                     if (!value.contains('@')) {
                       return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
-                  enabled: !_isLoading,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _displayNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Display Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a display name';
                     }
                     return null;
                   },

@@ -6,6 +6,7 @@ import '../models/server.dart';
 import '../models/channel.dart';
 import '../models/member.dart';
 import '../models/message.dart';
+import '../models/invite.dart';
 
 final supabaseServiceProvider = Provider((ref) => SupabaseService());
 
@@ -400,6 +401,110 @@ class SupabaseService {
       }
     } catch (e) {
       debugPrint('Error deleting message: $e');
+      rethrow;
+    }
+  }
+
+  // Server Invites
+  Future<Invite> createInvite(String serverId, {
+    Duration? expiry,
+    int? maxUses,
+  }) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+
+    // Generate a unique 8-character invite code
+    final code = DateTime.now().millisecondsSinceEpoch.toRadixString(36).substring(0, 8);
+
+    try {
+      final response = await _supabase
+          .from('server_invites')
+          .insert({
+            'server_id': serverId,
+            'code': code,
+            'created_by': user.id,
+            'expires_at': expiry != null
+                ? DateTime.now().add(expiry).toIso8601String()
+                : null,
+            'max_uses': maxUses,
+            'uses': 0,
+          })
+          .select()
+          .single();
+
+      return Invite.fromJson(response);
+    } catch (e) {
+      debugPrint('Error creating invite: $e');
+      rethrow;
+    }
+  }
+
+  Future<Invite?> getInvite(String code) async {
+    try {
+      final response = await _supabase
+          .from('server_invites')
+          .select()
+          .eq('code', code)
+          .single();
+
+      final invite = Invite.fromJson(response);
+      
+      // Check if invite is valid
+      if (!invite.isValid) {
+        return null;
+      }
+
+      return invite;
+    } catch (e) {
+      debugPrint('Error getting invite: $e');
+      return null;
+    }
+  }
+
+  Future<bool> useInvite(String code) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+
+    try {
+      // Get the invite
+      final invite = await getInvite(code);
+      if (invite == null) return false;
+
+      // Start a transaction
+      await _supabase.rpc('use_invite', params: {
+        'invite_code': code,
+        'user_id': user.id,
+      });
+
+      return true;
+    } catch (e) {
+      debugPrint('Error using invite: $e');
+      return false;
+    }
+  }
+
+  Future<List<Invite>> getServerInvites(String serverId) async {
+    try {
+      final response = await _supabase
+          .from('server_invites')
+          .select<List<Map<String, dynamic>>>()
+          .eq('server_id', serverId);
+      
+      return response.map((json) => Invite.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Error getting server invites: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteInvite(String inviteId) async {
+    try {
+      await _supabase
+          .from('server_invites')
+          .delete()
+          .eq('id', inviteId);
+    } catch (e) {
+      debugPrint('Error deleting invite: $e');
       rethrow;
     }
   }

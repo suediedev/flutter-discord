@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'signup_screen.dart';
@@ -23,38 +24,14 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authStateProvider);
+    final session = Supabase.instance.client.auth.currentSession;
+    
+    if (session != null) {
+      return const MainLayout();
+    }
 
-    return authState.when(
-      data: (user) {
-        if (user != null) {
-          return const MainLayout();
-        } else {
-          return _showSignUp
-              ? SignUpScreen(onLoginTap: _toggleAuthScreen)
-              : LoginScreen(onSignUpTap: _toggleAuthScreen);
-        }
-      },
-      loading: () => const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
-      error: (error, stackTrace) => Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Error: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _toggleAuthScreen,
-                child: Text(_showSignUp ? 'Go to Login' : 'Go to Sign Up'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return _showSignUp
+        ? SignUpScreen(onLoginTap: _toggleAuthScreen)
+        : LoginScreen(onSignUpTap: _toggleAuthScreen);
   }
 }
