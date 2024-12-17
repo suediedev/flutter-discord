@@ -1,155 +1,206 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_colors.dart';
 import '../models/member.dart';
-import '../services/supabase_service.dart';
-
-final membersProvider = StreamProvider.family<List<Member>, String>((ref, serverId) {
-  return SupabaseService().getServerMembers(serverId);
-});
+import '../providers/server_provider.dart';
+import '../theme/app_colors.dart';
+import 'status_indicator.dart';
 
 class MemberList extends ConsumerWidget {
   final String serverId;
+  final bool isBottomSheet;
 
-  const MemberList({super.key, required this.serverId});
+  const MemberList({
+    super.key,
+    required this.serverId,
+    this.isBottomSheet = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final membersAsync = ref.watch(membersProvider(serverId));
 
+    if (isBottomSheet) {
+      return _buildMemberListContent(context, membersAsync);
+    }
+
     return Container(
       width: 240,
-      color: AppColors.channelBarColor,
-      child: Column(
-        children: [
-          Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: AppColors.channelBarColor,
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.black.withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: const Row(
-              children: [
-                Text(
-                  'Members',
-                  style: TextStyle(
-                    color: AppColors.secondaryTextColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: membersAsync.when(
-              data: (members) => _buildMemberList(members),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Center(child: Text('Error loading members')),
-            ),
-          ),
-        ],
-      ),
+      color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+      child: _buildMemberListContent(context, membersAsync),
     );
   }
 
-  Widget _buildMemberList(List<Member> members) {
-    final onlineMembers = members.where((m) => m.isOnline).toList();
-    final offlineMembers = members.where((m) => !m.isOnline).toList();
-
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+  Widget _buildMemberListContent(BuildContext context, AsyncValue<List<Member>> membersAsync) {
+    return Column(
       children: [
-        if (onlineMembers.isNotEmpty) ...[
-          _buildRole('ONLINE—${onlineMembers.length}'),
-          ...onlineMembers.map((member) => _buildMember(
-                member.username,
-                member.avatarUrl ?? 'https://via.placeholder.com/150',
-                member.status == MemberStatus.online,
-              )),
-        ],
-        if (offlineMembers.isNotEmpty) ...[
-          _buildRole('OFFLINE—${offlineMembers.length}'),
-          ...offlineMembers.map((member) => _buildMember(
-                member.username,
-                member.avatarUrl ?? 'https://via.placeholder.com/150',
-                false,
-                isOffline: true,
-              )),
-        ],
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.black.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Text(
+                'Members',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const Spacer(),
+              membersAsync.when(
+                data: (members) => Text(
+                  members.length.toString(),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                ),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: membersAsync.when(
+            data: (members) {
+              final onlineMembers = members
+                  .where((m) => m.isOnline)
+                  .toList()
+                  ..sort((a, b) => (a.username ?? '').compareTo(b.username ?? ''));
+
+              final offlineMembers = members
+                  .where((m) => !m.isOnline)
+                  .toList()
+                  ..sort((a, b) => (a.username ?? '').compareTo(b.username ?? ''));
+
+              return ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  if (onlineMembers.isNotEmpty) ...[
+                    _buildMemberSection(
+                      context,
+                      'ONLINE',
+                      onlineMembers.length.toString(),
+                    ),
+                    ...onlineMembers.map((m) => _MemberTile(member: m)),
+                  ],
+                  if (offlineMembers.isNotEmpty) ...[
+                    _buildMemberSection(
+                      context,
+                      'OFFLINE',
+                      offlineMembers.length.toString(),
+                    ),
+                    ...offlineMembers.map((m) => _MemberTile(member: m)),
+                  ],
+                ],
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => Center(
+              child: Text('Error: $error'),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildRole(String name) {
+  Widget _buildMemberSection(BuildContext context, String title, String count) {
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 8, top: 16, bottom: 4),
-      child: Text(
-        name,
-        style: const TextStyle(
-          color: AppColors.secondaryTextColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            count,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _buildMember(String name, String avatarUrl, bool isActive, {bool isOffline = false}) {
+class _MemberTile extends StatelessWidget {
+  final Member member;
+
+  const _MemberTile({required this.member});
+
+  @override
+  Widget build(BuildContext context) {
     return ListTile(
-      dense: true,
       leading: Stack(
         children: [
           CircleAvatar(
-            radius: 16,
-            backgroundColor: Colors.grey[700],
-            backgroundImage: NetworkImage(
-              avatarUrl.startsWith('http') 
-                  ? 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(name)}&background=random'
-                  : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(name)}&background=random',
-            ),
-            onBackgroundImageError: (exception, stackTrace) {
-              debugPrint('Error loading avatar for $name: $exception');
-            },
-            child: avatarUrl.isEmpty 
+            backgroundColor: Colors.grey[800],
+            backgroundImage: member.avatarUrl != null
+                ? NetworkImage(member.avatarUrl!)
+                : null,
+            child: member.avatarUrl == null
                 ? Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : '?',
+                    member.username?[0].toUpperCase() ?? '?',
                     style: const TextStyle(color: Colors.white),
                   )
                 : null,
           ),
-          if (!isOffline)
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: isActive ? Colors.green : Colors.grey,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.channelBarColor,
-                    width: 2,
-                  ),
-                ),
-              ),
-            ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: StatusIndicator(status: member.status),
+          ),
         ],
       ),
       title: Text(
-        name,
+        member.username ?? 'Unknown User',
         style: TextStyle(
-          color: isOffline ? AppColors.secondaryTextColor.withOpacity(0.5) : AppColors.secondaryTextColor,
-          fontSize: 16,
+          color: member.isOnline
+              ? Theme.of(context).colorScheme.onSurface
+              : Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
         ),
       ),
+      subtitle: !member.isOnline
+          ? Text(
+              _formatLastSeen(member.lastSeen),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+              ),
+            )
+          : null,
     );
+  }
+
+  String _formatLastSeen(DateTime lastSeen) {
+    final now = DateTime.now();
+    final difference = now.difference(lastSeen);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'just now';
+    }
   }
 }

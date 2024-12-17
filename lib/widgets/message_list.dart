@@ -1,62 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/message.dart';
 import '../providers/message_provider.dart';
-import '../providers/channel_provider.dart';
-import '../theme/platform_theme.dart';
-import 'message_item.dart';
+import '../providers/supabase_provider.dart';
+import 'message_bubble.dart';
 
 class MessageList extends ConsumerWidget {
-  const MessageList({super.key});
+  final String channelId;
+
+  const MessageList({
+    Key? key,
+    required this.channelId,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedChannelId = ref.watch(selectedChannelProvider);
-    
-    if (selectedChannelId == null) {
-      return const Center(
-        child: Text(
-          'Select a channel to start chatting',
-          style: TextStyle(color: Colors.white70),
-        ),
-      );
-    }
-
-    final messagesAsync = ref.watch(messagesProvider(selectedChannelId));
+    final messagesAsync = ref.watch(messagesProvider(channelId));
 
     return messagesAsync.when(
       data: (messages) {
         if (messages.isEmpty) {
           return const Center(
-            child: Text(
-              'No messages yet',
-              style: TextStyle(color: Colors.white70),
-            ),
+            child: Text('No messages yet'),
           );
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          reverse: true, // Show newest messages at the bottom
+          reverse: true,
           itemCount: messages.length,
           itemBuilder: (context, index) {
             final message = messages[index];
-            return MessageItem(
-              username: message.username,
-              content: message.content,
-              timestamp: message.createdAt,
-              avatarUrl: message.avatarUrl ?? 'https://www.gravatar.com/avatar/${message.userId}?d=identicon',
+            return MessageBubble(
+              message: message,
+              onDelete: () async {
+                try {
+                  await ref.read(supabaseServiceProvider).deleteMessage(
+                    channelId,
+                    message.id,
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to delete message: $e')),
+                  );
+                }
+              },
             );
           },
         );
       },
-      loading: () => Center(
-        child: PlatformTheme.adaptiveProgressIndicator(),
-      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
-        child: Text(
-          'Error loading messages: $error',
-          style: const TextStyle(color: Colors.red),
-        ),
+        child: Text('Error: $error'),
       ),
     );
   }

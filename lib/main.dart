@@ -81,10 +81,16 @@ class MobileLayout extends StatelessWidget {
           child: SizedBox(
             height: 60,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Expanded(child: ServerList(isBottomBar: true)),
-                Expanded(child: ChannelList(isBottomBar: true)),
+                Flexible(
+                  flex: 1,
+                  child: ServerList(isBottomBar: true),
+                ),
+                VerticalDivider(width: 1),
+                Flexible(
+                  flex: 2,
+                  child: ChannelList(isBottomBar: true),
+                ),
               ],
             ),
           ),

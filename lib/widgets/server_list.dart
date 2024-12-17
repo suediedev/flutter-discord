@@ -3,119 +3,190 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/server.dart';
 import '../providers/server_provider.dart';
 import '../services/supabase_service.dart';
-import '../theme/platform_theme.dart';
-import 'invite_dialog.dart';
-import 'join_server_dialog.dart';
 import 'create_server_dialog.dart';
 
 class ServerList extends ConsumerWidget {
   final bool isBottomBar;
 
-  const ServerList({super.key, this.isBottomBar = false});
+  const ServerList({
+    super.key,
+    this.isBottomBar = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isMobile = PlatformTheme.isMobile(context);
-    final isIOS = PlatformTheme.isIOS(context);
     final serversAsync = ref.watch(serversStreamProvider);
+    final selectedServer = ref.watch(selectedServerProvider);
 
     if (isBottomBar) {
-      return _buildMobileBar(context, ref);
+      return _buildMobileBar(context, ref, serversAsync);
     }
 
-    return SizedBox(
-      width: 72,
-      child: Container(
-        color: Theme.of(context).colorScheme.surface,
-        child: _buildServerList(context, ref, serversAsync),
-      ),
-    );
-  }
-
-  Widget _buildMobileBar(BuildContext context, WidgetRef ref) {
     return Container(
-      color: Theme.of(context).colorScheme.surface,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      width: 72,
+      color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+      child: Column(
         children: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _createServer(context, ref),
-            tooltip: 'Create Server',
+          const SizedBox(height: 12),
+          // Add Server Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: _ServerIcon(
+              onTap: () => _showCreateServerDialog(context, ref),
+              child: const Icon(
+                Icons.add,
+                color: Colors.green,
+                size: 32,
+              ),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.link),
-            onPressed: () => _joinServer(context, ref),
-            tooltip: 'Join Server',
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Divider(color: Colors.white24, height: 1),
+          ),
+          // Server List
+          Expanded(
+            child: serversAsync.when(
+              data: (servers) => ListView.builder(
+                itemCount: servers.length,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemBuilder: (context, index) {
+                  final server = servers[index];
+                  final isSelected = server.id == selectedServer?.id;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _ServerIcon(
+                      isSelected: isSelected,
+                      onTap: () => ref.read(selectedServerProvider.notifier).state = server,
+                      child: server.iconUrl != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: Image.network(
+                                server.iconUrl!,
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => _buildServerInitials(server.name),
+                              ),
+                            )
+                          : _buildServerInitials(server.name),
+                    ),
+                  );
+                },
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(
+                child: Text('Error: $error', style: const TextStyle(color: Colors.red)),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildServerList(BuildContext context, WidgetRef ref, AsyncValue<List<Server>> serversAsync) {
-    return serversAsync.when(
-      data: (servers) {
-        if (servers.isEmpty) {
-          return const Center(
-            child: Text(
-              'No servers yet',
-              style: TextStyle(color: Colors.white70),
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: servers.length,
+  Widget _buildMobileBar(BuildContext context, WidgetRef ref, AsyncValue<List<Server>> serversAsync) {
+    return Container(
+      color: Theme.of(context).colorScheme.surface,
+      child: serversAsync.when(
+        data: (servers) => ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: servers.length + 1, // +1 for add button
           itemBuilder: (context, index) {
-            final server = servers[index];
-            return _ServerIcon(
-              isSelected: ref.watch(selectedServerProvider)?.id == server.id,
-              onTap: () => ref.read(selectedServerProvider.notifier).state = server,
-              child: Text(
-                server.name[0].toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
+            if (index == 0) {
+              return IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: () => _showCreateServerDialog(context, ref),
+                tooltip: 'Create Server',
+              );
+            }
+            final server = servers[index - 1];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: _ServerIcon(
+                onTap: () => ref.read(selectedServerProvider.notifier).state = server,
+                child: server.iconUrl != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.network(
+                          server.iconUrl!,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => 
+                            SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: _buildServerInitials(server.name),
+                            ),
+                        ),
+                      )
+                    : SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: _buildServerInitials(server.name),
+                      ),
               ),
             );
           },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Text(
-          'Error: $error',
-          style: const TextStyle(color: Colors.red),
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Text(
+            'Error: $error',
+            style: const TextStyle(color: Colors.red),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _createServer(BuildContext context, WidgetRef ref) async {
-    final server = await showDialog<Server>(
-      context: context,
-      builder: (context) => const CreateServerDialog(),
+  Widget _buildServerInitials(String name) {
+    final initials = name.split(' ').take(2).map((e) => e.isNotEmpty ? e[0] : '').join().toUpperCase();
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.blueGrey,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
     );
-
-    if (server != null) {
-      ref.read(selectedServerProvider.notifier).state = server;
-    }
   }
 
-  Future<void> _joinServer(BuildContext context, WidgetRef ref) async {
-    final joined = await showDialog<bool>(
+  Future<void> _showCreateServerDialog(BuildContext context, WidgetRef ref) async {
+    if (!context.mounted) return;
+    
+    final result = await showDialog<Map<String, String>?>(
       context: context,
-      builder: (context) => const JoinServerDialog(),
+      builder: (BuildContext context) => const CreateServerDialog(),
     );
 
-    if (joined == true && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Successfully joined server!')),
-      );
+    if (result != null && context.mounted) {
+      try {
+        final server = await ref.read(supabaseServiceProvider).createServer(
+          result['name']!,
+          iconUrl: result['iconUrl'],
+        );
+        if (context.mounted) {
+          ref.read(selectedServerProvider.notifier).state = server;
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to create server: $e')),
+          );
+        }
+      }
     }
   }
 }
@@ -133,17 +204,15 @@ class _ServerIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
       child: Container(
         width: 48,
         height: 48,
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected
-              ? Theme.of(context).colorScheme.primary
-              : Colors.grey[800],
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? Colors.blueAccent : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Center(child: child),
       ),

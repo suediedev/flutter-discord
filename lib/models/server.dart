@@ -11,9 +11,17 @@ class Server {
 
   factory Server.fromJson(Map<String, dynamic> json) {
     return Server(
-      id: json['id'],
-      name: json['name'],
-      iconUrl: json['icon_url'],
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Unnamed Server',
+      iconUrl: json['icon_url']?.toString(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'icon_url': iconUrl,
+    };
   }
 }

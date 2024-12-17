@@ -276,7 +276,38 @@ class SupabaseService {
         .from('server_members')
         .stream(primaryKey: ['id'])
         .eq('server_id', serverId)
-        .map((rows) => rows.map((row) => Member.fromJson(row)).toList());
+        .asyncMap((rows) async {
+          final memberIds = rows.map((row) => row['user_id'] as String).toList();
+          
+          // Fetch user data for all members
+          final userData = await _supabase
+              .from('users')
+              .select('id, username, avatar_url')
+              .in_('id', memberIds)
+              .execute();
+
+          // Create a map of user data
+          final userMap = {
+            for (var user in userData.data as List)
+              user['id'] as String: user
+          };
+
+          // Combine member and user data
+          return rows.map((row) {
+            final user = userMap[row['user_id']];
+            final memberData = {
+              'id': row['id'] as String,
+              'user_id': row['user_id'] as String,
+              'server_id': row['server_id'] as String,
+              'role': row['role'] as String? ?? 'member',
+              'status': row['status'] as String? ?? 'offline',
+              'last_seen': row['last_seen'] as String? ?? DateTime.now().toIso8601String(),
+              'username': user?['username'] as String? ?? 'Unknown User',
+              'avatar_url': user?['avatar_url'] as String?,
+            };
+            return Member.fromJson(memberData);
+          }).toList();
+        });
   }
 
   Future<void> joinServer(String serverId) async {
@@ -296,8 +327,50 @@ class SupabaseService {
     }).eq('id', memberId);
   }
 
-  // Messages
+  // Message-related methods
   Stream<List<Message>> getMessagesStream(String channelId) {
+    return _supabase
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('channel_id', channelId)
+        .order('created_at')
+        .map((data) => data.map((json) => Message.fromJson(json)).toList());
+  }
+
+  Future<void> sendMessage(String channelId, String content) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await _supabase.from('messages').insert({
+      'channel_id': channelId,
+      'content': content,
+      'user_id': userId,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> deleteMessage(String channelId, String messageId) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await _supabase
+        .from('messages')
+        .delete()
+        .match({'id': messageId, 'channel_id': channelId, 'user_id': userId});
+  }
+
+  Future<void> loadMessages(String channelId) async {
+    // This method is now optional since we're using real-time subscriptions
+    // But we can use it to load initial messages if needed
+    await _supabase
+        .from('messages')
+        .select()
+        .eq('channel_id', channelId)
+        .order('created_at');
+  }
+
+  // Messages
+  Stream<List<Message>> getMessagesStreamOld(String channelId) {
     final streamKey = 'messages_$channelId';
     final controller = StreamController<List<Message>>();
     _streamControllers[streamKey] = controller;
@@ -354,7 +427,7 @@ class SupabaseService {
     }
   }
 
-  Future<Message> sendMessage(String channelId, String content) async {
+  Future<Message> sendMessageOld(String channelId, String content) async {
     final user = _supabase.auth.currentUser;
     if (user == null) throw Exception('Not authenticated');
 
@@ -386,7 +459,7 @@ class SupabaseService {
     }
   }
 
-  Future<void> deleteMessage(String channelId, String messageId) async {
+  Future<void> deleteMessageOld(String channelId, String messageId) async {
     try {
       await _supabase
           .from('messages')
