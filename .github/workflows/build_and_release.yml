@@ -1,0 +1,110 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Build Android APK
+        run: flutter build apk --release
+      
+      - name: Build Android App Bundle
+        run: flutter build appbundle --release
+      
+      - name: Upload Android Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-builds
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+      
+      - name: Enable macOS Desktop
+        run: flutter config --enable-macos-desktop
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Build macOS App
+        run: flutter build macos --release
+      
+      - name: Create DMG
+        run: |
+          cd build/macos/Build/Products/Release
+          create-dmg \
+            --volname "Discord Native" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "discord_native.app" 200 190 \
+            --hide-extension "discord_native.app" \
+            --app-drop-link 600 185 \
+            "DiscordNative.dmg" \
+            "discord_native.app"
+      
+      - name: Upload macOS Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-build
+          path: build/macos/Build/Products/Release/DiscordNative.dmg
+
+  create-release:
+    needs: [build-android, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Android Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: android-builds
+          path: android-builds
+      
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: macos-build
+          path: macos-build
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            android-builds/app-release.apk
+            android-builds/app-release.aab
+            macos-build/DiscordNative.dmg
+          draft: false
+          prerelease: false
+          generate_release_notes: true

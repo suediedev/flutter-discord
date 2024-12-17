@@ -70,7 +70,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             const ChannelList(),
             Expanded(
               child: Container(
-                color: Theme.of(context).colorScheme.background,
+                color: Theme.of(context).colorScheme.surface,
                 child: selectedChannel != null
                     ? Column(
                         children: [
@@ -92,12 +92,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ),
               ),
             ),
-            if (selectedServerId != null)
-              MemberList(serverId: selectedServerId),
+            MemberList(serverId: selectedServerId),
           ] else
             Expanded(
               child: Container(
-                color: Theme.of(context).colorScheme.background,
+                color: Theme.of(context).colorScheme.surface,
                 child: const Center(
                   child: Text(
                     'Select or create a server to start chatting!',
@@ -192,7 +191,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.background,
+                fillColor: Theme.of(context).colorScheme.surface,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
               onSubmitted: (_) => _sendMessage(channel),

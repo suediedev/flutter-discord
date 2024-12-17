@@ -222,22 +222,22 @@ class _CreateInviteDialogState extends State<CreateInviteDialog> {
                 labelText: 'Expiry',
                 border: OutlineInputBorder(),
               ),
-              items: [
-                const DropdownMenuItem(
+              items: const [
+                DropdownMenuItem(
                   value: null,
                   child: Text('Never'),
                 ),
                 DropdownMenuItem(
-                  value: const Duration(hours: 1),
-                  child: const Text('1 hour'),
+                  value: Duration(hours: 1),
+                  child: Text('1 hour'),
                 ),
                 DropdownMenuItem(
-                  value: const Duration(days: 1),
-                  child: const Text('1 day'),
+                  value: Duration(days: 1),
+                  child: Text('1 day'),
                 ),
                 DropdownMenuItem(
-                  value: const Duration(days: 7),
-                  child: const Text('7 days'),
+                  value: Duration(days: 7),
+                  child: Text('7 days'),
                 ),
               ],
               onChanged: (value) => setState(() => _expiry = value),

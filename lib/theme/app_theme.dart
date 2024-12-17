@@ -13,21 +13,23 @@ class AppTheme {
       filled: true,
       fillColor: AppColors.messageInputBackground,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,
       ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       labelStyle: const TextStyle(color: AppColors.secondaryTextColor),
     ),
     cardTheme: CardTheme(
       color: AppColors.cardBackground,
-      elevation: 4,
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: AppColors.primaryPurple,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -36,8 +38,9 @@ class AppTheme {
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
         ),
+        minimumSize: const Size(double.infinity, 50),
       ),
     ),
   );

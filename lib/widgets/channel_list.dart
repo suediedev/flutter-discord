@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../theme/platform_theme.dart';
 import '../models/channel.dart';
 import '../models/server.dart';
 import '../providers/server_provider.dart';
@@ -7,7 +8,9 @@ import '../providers/channel_provider.dart';
 import '../services/supabase_service.dart';
 
 class ChannelList extends ConsumerWidget {
-  const ChannelList({super.key});
+  final bool isBottomBar;
+
+  const ChannelList({super.key, this.isBottomBar = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,65 +29,52 @@ class ChannelList extends ConsumerWidget {
       );
     }
 
-    final channelsAsync = ref.watch(channelsProvider(selectedServer.id));
-    final selectedChannelId = ref.watch(selectedChannelProvider);
+    if (isBottomBar) {
+      return _buildMobileBar(context, ref, selectedServer.id);
+    }
 
-    return Container(
+    return SizedBox(
       width: 240,
-      color: Colors.grey[850],
-      child: Column(
-        children: [
-          _buildHeader(context, ref, selectedServer),
-          Expanded(
-            child: channelsAsync.when(
-              data: (channels) {
-                if (channels.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No channels yet',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  itemCount: channels.length,
-                  itemBuilder: (context, index) {
-                    final channel = channels[index];
-                    final isSelected = channel.id == selectedChannelId;
-
-                    return _ChannelTile(
-                      channel: channel,
-                      isSelected: isSelected,
-                      onTap: () {
-                        ref.read(selectedChannelProvider.notifier).state = channel.id;
-                      },
-                      onDelete: () => _deleteChannel(context, ref, channel),
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error: $error',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => ref.refresh(channelsProvider(selectedServer.id)),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
+      child: Container(
+        color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+        child: Column(
+          children: [
+            _buildHeader(context, ref, selectedServer),
+            Expanded(
+              child: _buildChannelList(context, ref, selectedServer.id),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileBar(BuildContext context, WidgetRef ref, String serverId) {
+    final channelsAsync = ref.watch(channelsProvider(serverId));
+    
+    return Container(
+      color: Theme.of(context).colorScheme.surface,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chat),
+            onPressed: () {
+              // TODO: Show channel selection bottom sheet
+              showModalBottomSheet(
+                context: context,
+                builder: (context) => Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: _buildChannelList(context, ref, serverId),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              // TODO: Show settings
+            },
           ),
         ],
       ),
@@ -115,6 +105,49 @@ class ChannelList extends ConsumerWidget {
             tooltip: 'Create Channel',
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildChannelList(BuildContext context, WidgetRef ref, String serverId) {
+    final channelsAsync = ref.watch(channelsProvider(serverId));
+    final selectedChannelId = ref.watch(selectedChannelProvider);
+
+    return channelsAsync.when(
+      data: (channels) {
+        if (channels.isEmpty) {
+          return const Center(
+            child: Text(
+              'No channels yet',
+              style: TextStyle(color: Colors.white70),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: channels.length,
+          itemBuilder: (context, index) {
+            final channel = channels[index];
+            final isSelected = channel.id == selectedChannelId;
+
+            return _ChannelTile(
+              channel: channel,
+              isSelected: isSelected,
+              onTap: () => ref.read(selectedChannelProvider.notifier).state = channel.id,
+              onDelete: () => _deleteChannel(context, ref, channel),
+            );
+          },
+        );
+      },
+      loading: () => Center(
+        child: PlatformTheme.adaptiveProgressIndicator(),
+      ),
+      error: (error, stack) => Center(
+        child: Text(
+          'Error: $error',
+          style: const TextStyle(color: Colors.red),
+        ),
       ),
     );
   }
@@ -225,6 +258,11 @@ class ChannelList extends ConsumerWidget {
 }
 
 class _ChannelTile extends StatelessWidget {
+  final Channel channel;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
   const _ChannelTile({
     required this.channel,
     required this.isSelected,
@@ -232,28 +270,21 @@ class _ChannelTile extends StatelessWidget {
     required this.onDelete,
   });
 
-  final Channel channel;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: const Icon(
+      leading: Icon(
         Icons.tag,
-        color: Colors.white70,
-        size: 20,
+        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey,
       ),
       title: Text(
         channel.name,
         style: TextStyle(
-          color: isSelected ? Colors.white : Colors.white70,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white,
         ),
       ),
       selected: isSelected,
-      selectedTileColor: Colors.blueAccent.withOpacity(0.2),
+      selectedTileColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
       onTap: onTap,
       trailing: IconButton(
         icon: const Icon(Icons.delete, color: Colors.red, size: 20),
