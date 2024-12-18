@@ -35,7 +35,7 @@ jobs:
           flutter build apk --release
           
       - name: Upload Android Build
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: android-builds
           path: build/app/outputs/flutter-apk/app-release.apk
@@ -166,7 +166,7 @@ jobs:
           flutter pub run msix:create
         
       - name: Upload Windows Build
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: windows-msix
           path: build/windows/runner/Release/gavnnat_v2.msix
