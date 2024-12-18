@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Discord Native',
+      title: 'Gavnnat v2',
       theme: PlatformTheme.getMaterialTheme(true),
       home: const MainLayout(),
     );
@@ -205,7 +205,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ],
             ),
             appBar: AppBar(
-              title: const Text('Discord Native'),
+              title: const Text('Gavnnat v2'),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.notifications),
@@ -253,7 +253,7 @@ class _MobileLayoutState extends State<MobileLayout> {
           // Home/Chat view
           Scaffold(
             appBar: AppBar(
-              title: const Text('Discord Native'),
+              title: const Text('Gavnnat v2'),
             ),
             body: const Column(
               children: [

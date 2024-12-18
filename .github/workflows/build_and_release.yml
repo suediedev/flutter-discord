@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     branches:
-      - '*'  # Trigger on any branch
+      - '*'
 
 jobs:
   build-android:
@@ -20,7 +20,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.1'
+          flutter-version: '3.16.0'
           channel: 'stable'
       
       - name: Install dependencies
@@ -40,51 +40,6 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
 
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.27.1'
-          channel: 'stable'
-      
-      - name: Enable macOS Desktop
-        run: flutter config --enable-macos-desktop
-
-      - name: Install Homebrew
-        run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-      
-      - name: Install dependencies
-        run: |
-          brew install create-dmg
-          flutter pub get
-      
-      - name: Build macOS App
-        run: flutter build macos --release
-      
-      - name: Create DMG
-        run: |
-          cd build/macos/Build/Products/Release
-          create-dmg \
-            --volname "Discord Native" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --icon "discord_native.app" 200 190 \
-            --hide-extension "discord_native.app" \
-            --app-drop-link 600 185 \
-            "DiscordNative.dmg" \
-            "discord_native.app"
-      
-      - name: Upload macOS Build Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: macos-build
-          path: build/macos/Build/Products/Release/DiscordNative.dmg
-
   build-ios:
     runs-on: macos-latest
     steps:
@@ -93,7 +48,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.1'
+          flutter-version: '3.16.0'
           channel: 'stable'
       
       - name: Install dependencies
@@ -113,22 +68,157 @@ jobs:
           name: ios-build
           path: build/ios/iphoneos/app.ipa
 
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+      
+      - name: Enable macOS Desktop
+        run: flutter config --enable-macos-desktop
+      
+      - name: Install dependencies
+        run: |
+          brew install create-dmg
+          flutter pub get
+      
+      - name: Build macOS App
+        run: flutter build macos --release
+      
+      - name: Create DMG
+        run: |
+          cd build/macos/Build/Products/Release
+          create-dmg \
+            --volname "Gavnnat v2" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "gavnnatv2.app" 200 190 \
+            --hide-extension "gavnnatv2.app" \
+            --app-drop-link 600 185 \
+            "Gavnnatv2.dmg" \
+            "gavnnatv2.app"
+      
+      - name: Upload macOS Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-build
+          path: build/macos/Build/Products/Release/Gavnnatv2.dmg
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+      
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Build Windows App
+        run: flutter build windows --release
+      
+      - name: Create ZIP
+        run: |
+          cd build/windows/x64/runner/Release
+          7z a -tzip windows-release.zip *
+      
+      - name: Upload Windows Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-build
+          path: build/windows/x64/runner/Release/windows-release.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+      
+      - name: Enable Linux Desktop
+        run: flutter config --enable-linux-desktop
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Build Linux App
+        run: flutter build linux --release
+      
+      - name: Create TAR
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czf linux-release.tar.gz *
+      
+      - name: Upload Linux Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: linux-build
+          path: build/linux/x64/release/bundle/linux-release.tar.gz
+
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Build Web
+        run: flutter build web --release
+      
+      - name: Upload Web Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: web-build
+          path: build/web
+
   create-release:
-    needs: [build-android, build-macos, build-ios]
+    needs: [build-android, build-ios, build-macos, build-windows, build-linux, build-web]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v3
         
       - name: Create Release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             android-builds/*
-            macos-build/*
             ios-build/*
+            macos-build/*
+            windows-build/*
+            linux-build/*
+            web-build/*
           draft: false
           prerelease: false
