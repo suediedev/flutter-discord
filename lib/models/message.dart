@@ -17,12 +17,14 @@ class Message {
 
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
-      id: json['id'] as String,
-      channelId: json['channel_id'] as String,
-      content: json['content'] as String,
-      userId: json['user_id'] as String,
-      userDisplayName: json['user_display_name'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      id: json['id']?.toString() ?? '',
+      channelId: json['channel_id']?.toString() ?? '',
+      content: json['content']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
+      userDisplayName: json['user_display_name']?.toString(),
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at'].toString())
+          : DateTime.now(),
     );
   }
 

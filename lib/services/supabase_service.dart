@@ -39,17 +39,20 @@ class SupabaseService {
         return;
       }
 
-      // Create a new RealtimeChannel
-      final channel = _supabase.channel('public:messages');
-      
-      // Subscribe to the channel
-      channel
-        .on(RealtimeListenTypes.postgresChanges,
-          ChannelFilter(event: '*', schema: 'public', table: 'messages'),
+      // Create a new RealtimeChannel for messages
+      final channel = _supabase.channel('public:messages')
+        .on(
+          RealtimeListenTypes.postgresChanges,
+          ChannelFilter(
+            event: '*',
+            schema: 'public',
+            table: 'messages'
+          ),
           (payload, [ref]) {
-            debugPrint('Message change received: $payload');
-          })
-        .subscribe();
+            debugPrint('Message change received: ${payload.toString()}');
+            // The channel stream will automatically update
+          }
+        ).subscribe();
 
       debugPrint('Realtime channel initialized');
     } catch (e) {
@@ -277,36 +280,43 @@ class SupabaseService {
         .stream(primaryKey: ['id'])
         .eq('server_id', serverId)
         .asyncMap((rows) async {
-          final memberIds = rows.map((row) => row['user_id'] as String).toList();
+          try {
+            final memberIds = rows.map((row) => row['user_id'].toString()).toList();
           
-          // Fetch user data for all members
-          final userData = await _supabase
-              .from('users')
-              .select('id, username, avatar_url')
-              .in_('id', memberIds)
-              .execute();
+            // Fetch user data for all members
+            final userData = await _supabase
+                .from('profiles')
+                .select('id, username, avatar_url')
+                .in_('id', memberIds);
 
-          // Create a map of user data
-          final userMap = {
-            for (var user in userData.data as List)
-              user['id'] as String: user
-          };
-
-          // Combine member and user data
-          return rows.map((row) {
-            final user = userMap[row['user_id']];
-            final memberData = {
-              'id': row['id'] as String,
-              'user_id': row['user_id'] as String,
-              'server_id': row['server_id'] as String,
-              'role': row['role'] as String? ?? 'member',
-              'status': row['status'] as String? ?? 'offline',
-              'last_seen': row['last_seen'] as String? ?? DateTime.now().toIso8601String(),
-              'username': user?['username'] as String? ?? 'Unknown User',
-              'avatar_url': user?['avatar_url'] as String?,
+            // Create a map of user data
+            final userMap = {
+              for (var user in userData)
+                user['id'].toString(): user
             };
-            return Member.fromJson(memberData);
-          }).toList();
+
+            // Combine member and user data
+            return rows.map((row) {
+              final user = userMap[row['user_id'].toString()];
+              final memberData = {
+                'id': row['id']?.toString() ?? '',
+                'user_id': row['user_id']?.toString() ?? '',
+                'server_id': row['server_id']?.toString() ?? '',
+                'role': row['role']?.toString() ?? 'member',
+                'status': row['status']?.toString() ?? 'offline',
+                'last_seen': row['last_seen']?.toString() ?? DateTime.now().toIso8601String(),
+                'username': user?['username']?.toString() ?? 
+                          _supabase.auth.currentUser?.userMetadata?['username']?.toString() ?? 
+                          _supabase.auth.currentUser?.email?.split('@')[0] ?? 
+                          'Guest',
+                'avatar_url': user?['avatar_url']?.toString(),
+              };
+              return Member.fromJson(memberData);
+            }).toList();
+          } catch (e) {
+            debugPrint('Error in getServerMembers: $e');
+            return [];
+          }
         });
   }
 
@@ -327,24 +337,133 @@ class SupabaseService {
     }).eq('id', memberId);
   }
 
+  Future<void> updateUserStatus(MemberStatus status) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    await _supabase.from('members').update({
+      'status': status.name,
+    }).eq('id', userId);
+  }
+
+  // Profile methods
+  Future<Map<String, dynamic>?> getUserProfile() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return null;
+
+    final response = await _supabase
+        .from('profiles')
+        .select()
+        .eq('id', userId)
+        .single();
+    
+    return response;
+  }
+
+  Future<void> updateUserProfile({
+    required String displayName,
+    String? pronouns,
+    String? aboutMe,
+    String? bannerColor,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    await _supabase.from('profiles').upsert({
+      'id': userId,
+      'display_name': displayName,
+      'pronouns': pronouns,
+      'about_me': aboutMe,
+      'banner_color': bannerColor,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  // Server Profile methods
+  Future<Map<String, dynamic>?> getServerProfile(String serverId) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return null;
+
+    try {
+      final response = await _supabase
+          .from('server_profiles')
+          .select()
+          .eq('user_id', userId)
+          .eq('server_id', serverId)
+          .maybeSingle();
+      
+      return response;
+    } catch (e) {
+      print('Error getting server profile: $e');
+      return null;
+    }
+  }
+
+  Future<void> updateServerProfile({
+    required String serverId,
+    required String nickname,
+    String? pronouns,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    await _supabase.from('server_profiles').upsert({
+      'user_id': userId,
+      'server_id': serverId,
+      'nickname': nickname,
+      'pronouns': pronouns,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getUserServers() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    final response = await _supabase
+        .from('server_members')
+        .select('''
+          server_id,
+          servers (
+            id,
+            name,
+            icon_url
+          )
+        ''')
+        .eq('user_id', userId);
+    
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   // Message-related methods
   Stream<List<Message>> getMessagesStream(String channelId) {
     return _supabase
         .from('messages')
         .stream(primaryKey: ['id'])
         .eq('channel_id', channelId)
-        .order('created_at')
-        .map((data) => data.map((json) => Message.fromJson(json)).toList());
+        .order('created_at', ascending: true)
+        .map((data) {
+          return data.map((json) {
+            final messageData = Map<String, dynamic>.from(json);
+            messageData['user_display_name'] = json['user_display_name'] ?? 'Unknown User';
+            return Message.fromJson(messageData);
+          }).toList();
+        });
   }
 
   Future<void> sendMessage(String channelId, String content) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    final displayName = user.userMetadata?['username'] as String? ?? 
+                       user.email?.split('@')[0] ?? 
+                       'Unknown User';
 
     await _supabase.from('messages').insert({
       'channel_id': channelId,
       'content': content,
-      'user_id': userId,
+      'user_id': user.id,
+      'user_display_name': displayName,
       'created_at': DateTime.now().toIso8601String(),
     });
   }
@@ -432,7 +551,9 @@ class SupabaseService {
     if (user == null) throw Exception('Not authenticated');
 
     try {
-      final displayName = user.email?.split('@')[0] ?? 'Unknown User';
+      final displayName = user.userMetadata?['username'] as String? ?? 
+                         user.email?.split('@')[0] ?? 
+                         'Unknown User';
       
       final response = await _supabase
           .from('messages')
@@ -582,6 +703,127 @@ class SupabaseService {
     }
   }
 
+  // User status management
+  Future<MemberStatus> getUserStatus() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+
+    try {
+      // First try to get the profile
+      final response = await _supabase
+          .from('profiles')
+          .select('status, last_seen')
+          .eq('id', user.id)
+          .maybeSingle(); // Use maybeSingle instead of single to handle null case
+
+      if (response == null) {
+        // Profile doesn't exist, create it
+        final defaultProfile = {
+          'id': user.id,
+          'status': 'online',
+          'last_seen': DateTime.now().toIso8601String(),
+          'username': user.userMetadata?['username'] ?? user.email?.split('@')[0] ?? 'User',
+        };
+
+        await _supabase.from('profiles').upsert(defaultProfile);
+        return MemberStatus.online;
+      }
+
+      return _parseStatus(response['status'] as String? ?? 'offline');
+    } catch (e) {
+      debugPrint('Error getting user status: $e');
+      // If there's an error, try to ensure the profile exists
+      try {
+        await _supabase.from('profiles').upsert({
+          'id': user.id,
+          'status': 'online',
+          'last_seen': DateTime.now().toIso8601String(),
+          'username': user.userMetadata?['username'] ?? user.email?.split('@')[0] ?? 'User',
+        });
+      } catch (e) {
+        debugPrint('Error creating profile: $e');
+      }
+      return MemberStatus.online;
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> getNotifications() {
+    return _supabase
+        .from('notifications')
+        .stream(primaryKey: ['id'])
+        .eq('recipient_id', _supabase.auth.currentUser?.id)
+        .order('created_at', ascending: false)
+        .map((event) => event);
+  }
+
+  Future<void> markNotificationAsRead(String notificationId) async {
+    await _supabase
+        .from('notifications')
+        .update({'read': true})
+        .eq('id', notificationId)
+        .eq('recipient_id', _supabase.auth.currentUser?.id);
+  }
+
+  Future<void> markAllNotificationsAsRead() async {
+    await _supabase
+        .from('notifications')
+        .update({'read': true})
+        .eq('recipient_id', _supabase.auth.currentUser?.id)
+        .eq('read', false);
+  }
+
+  Future<List<Map<String, dynamic>>> getUnreadNotificationsCount() async {
+    final response = await _supabase
+        .from('notifications')
+        .select()
+        .eq('recipient_id', _supabase.auth.currentUser?.id)
+        .eq('read', false);
+    return response;
+  }
+
+  Stream<List<Map<String, dynamic>>> getSuggestedFriends() async* {
+    final currentUserId = _supabase.auth.currentUser?.id;
+    if (currentUserId == null) {
+      yield [];
+      return;
+    }
+
+    // Get current friend IDs
+    final friendIds = await _getFriendIds();
+    
+    // Get initial profiles that aren't friends
+    final response = await _supabase
+        .from('profiles')
+        .select()
+        .neq('id', currentUserId)
+        .not('id', 'in', friendIds)
+        .limit(5);
+
+    yield response;
+
+    // Listen for changes to all profiles
+    // We'll filter in memory since stream builder has limited query options
+    yield* _supabase
+        .from('profiles')
+        .stream(primaryKey: ['id'])
+        .map((profiles) {
+          return profiles.where((profile) {
+            final profileId = profile['id'] as String;
+            return profileId != currentUserId && !friendIds.contains(profileId);
+          }).take(5).toList();
+        });
+  }
+
+  Future<List<String>> _getFriendIds() async {
+    final response = await _supabase
+        .from('friends')
+        .select('friend_id')
+        .eq('user_id', _supabase.auth.currentUser?.id)
+        .eq('status', 'accepted');
+    
+    return (response as List).map((e) => e['friend_id'] as String).toList();
+  }
+
   // Auth state stream
   Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
 
@@ -676,6 +918,20 @@ class SupabaseService {
       await _supabase.auth.signOut();
     } catch (e) {
       // Ignore sign out errors as we just want to clear the session
+    }
+  }
+
+  static MemberStatus _parseStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'online':
+        return MemberStatus.online;
+      case 'idle':
+        return MemberStatus.idle;
+      case 'donotdisturb':
+      case 'dnd':
+        return MemberStatus.doNotDisturb;
+      default:
+        return MemberStatus.offline;
     }
   }
 }
