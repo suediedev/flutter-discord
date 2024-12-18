@@ -8,6 +8,16 @@ on:
     branches:
       - '*'
 
+name: "Build"
+
+on:
+  pull_request:
+    branches:
+      - '*'
+  push:
+    branches:
+      - '*'
+
 jobs:  
   build:      
     name: Build & Release 
@@ -28,20 +38,13 @@ jobs:
           key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
           restore-keys: |
             ${{ runner.os }}-flutter-
-
-        #3 Install GraalVM
-      - name: Install GraalVM
-        run: |
-          # Download GraalVM from GitHub releases
-          curl -L https://github.com/graalvm/graalvm-ce-builds/releases/download/v22.3.0/graalvm-ce-java17-darwin-amd64-22.3.0.tar.gz -o graalvm.tar.gz
-          
-          # Extract the downloaded archive
-          tar -xzf graalvm.tar.gz
-
-          # Set GraalVM as JAVA_HOME
-          echo "GRAALVM_HOME=$(pwd)/graalvm-ce-java17-22.3.0" >> $GITHUB_ENV
-          echo "JAVA_HOME=$GRAALVM_HOME" >> $GITHUB_ENV
-          echo "$JAVA_HOME/bin" >> $PATH
+        
+        #3 Setup Java
+      - name: Set Up Java
+        uses: actions/setup-java@v3.12.0
+        with:
+          distribution: 'oracle'
+          java-version: '20'
 
         #4 Setup Flutter
       - name: Set Up Flutter
@@ -58,7 +61,6 @@ jobs:
           key: ${{ runner.os }}-pub-cache-${{ hashFiles('**/pubspec.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pub-cache-
-
         #6 Install Dependencies
       - name: Install Dependencies
         run: flutter pub get
@@ -67,14 +69,12 @@ jobs:
       - name: Decode Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
-
       - name: Create key.properties
         run: |
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=keystore.jks" >> android/key.properties
-
         #8 Building APK
       - name: Build APK
         run: flutter build apk --release
@@ -115,7 +115,6 @@ jobs:
         run: |
           version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
           echo "VERSION=$version" >> $GITHUB_ENV
-
         #15 Check if Tag Exists
       - name: Check if Tag Exists
         id: check_tag
@@ -125,7 +124,6 @@ jobs:
             echo "TAG_EXISTS=true" >> $GITHUB_ENV
           else
             echo "TAG_EXISTS=false" >> $GITHUB_ENV
-
         #16 Create Release if Tag Doesn't Exist
       - name: Create Release
         if: env.TAG_EXISTS == 'false'
@@ -135,4 +133,3 @@ jobs:
           token: ${{ secrets.TOKEN }}
           artifacts: |
             build/app/outputs/flutter-apk/app-release.apk
-
