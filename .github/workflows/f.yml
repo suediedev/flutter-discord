@@ -97,6 +97,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios_build
-          path: build/ios/ipa
+          path: build/ios/archive/Runner.xcarchive
 
 
