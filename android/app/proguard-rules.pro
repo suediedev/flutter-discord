@@ -12,5 +12,18 @@
 -keep class io.postgrest.** { *; }
 -keep class io.realtime.** { *; }
 
+# Play Core library
+-keep class com.google.android.play.core.splitcompat.** { *; }
+-keep class com.google.android.play.core.splitinstall.** { *; }
+-keep class com.google.android.play.core.tasks.** { *; }
+-keep class io.flutter.app.FlutterPlayStoreSplitApplication { *; }
+-keep class io.flutter.embedding.engine.deferredcomponents.** { *; }
+
 # Keep your application classes
 -keep class com.example.discord_native.** { *; }
+
+# Keep R8 safe
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable
+-keepattributes Signature
+-keepattributes Exceptions
