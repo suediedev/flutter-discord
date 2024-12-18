@@ -112,8 +112,7 @@ jobs:
           tag_name="v${{ env.github.run_number }}"
           if git tag -l | grep -q "$tag_name"; then
             echo "TAG_EXISTS=true" >> $GITHUB_ENV
-          else
-            echo "TAG_EXISTS=false" >> $GITHUB_ENV
+
         #16 Create Release if Tag Doesn't Exist
       - name: Create Release
         if: env.TAG_EXISTS == 'false'
