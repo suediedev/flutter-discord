@@ -28,7 +28,7 @@ jobs:
           key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
           restore-keys: |
             ${{ runner.os }}-flutter-
-
+        
         #3 Setup Java
       - name: Set Up Java
         uses: actions/setup-java@v3.12.0
@@ -60,14 +60,14 @@ jobs:
       - name: Decode Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
-          
+
       - name: Create key.properties
         run: |
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=keystore.jks" >> android/key.properties
-        
+
         #8 Building APK
       - name: Build APK
         run: flutter build apk --release
@@ -78,7 +78,7 @@ jobs:
 
         #10 Build IPA ( IOS Build )
       - name: Build IPA
-        run: flutter build ipa --no-codesign
+        run: flutter build ipa --release --no-codesign
 
         #11 Upload APK Artifact
       - name: Upload APK Artifact
@@ -94,8 +94,9 @@ jobs:
           name: app-release.aab
           path: build/app/outputs/bundle/release/app-release.aab
 
-        #13 Upload IPA Artifact
+        #13 Upload IPA Artifact (Optional)
       - name: Upload IPA Artifact
+        if: always() # Only if IPA exists
         uses: actions/upload-artifact@v4
         with:
           name: ios_build
@@ -112,24 +113,18 @@ jobs:
       - name: Check if Tag Exists
         id: check_tag
         run: |
-          if git rev-parse "v${{ env.github.run_number }}" >/dev/null 2>&1; then
+          tag_name="v${{ env.github.run_number }}"
+          if git tag -l | grep -q "$tag_name"; then
             echo "TAG_EXISTS=true" >> $GITHUB_ENV
           else
             echo "TAG_EXISTS=false" >> $GITHUB_ENV
-          fi
 
-        #16 Modify Tag if it Exists
-      - name: Modify Tag
-        if: env.TAG_EXISTS == 'true'
-        id: modify_tag
-        run: |
-          new_version="${{ env.github.run_number }}-build-${{ github.run_number }}"
-          echo "VERSION=$new_version" >> $GITHUB_ENV
-        
-        #17 Create Release
+        #16 Create Release if Tag Doesn't Exist
       - name: Create Release
+        if: env.TAG_EXISTS == 'false'
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/flutter-apk/app-release.apk"
           tag: v${{ env.github.run_number }}
           token: ${{ secrets.TOKEN }}
+          artifacts: |
+            build/app/outputs/flutter-apk/app-release.apk
