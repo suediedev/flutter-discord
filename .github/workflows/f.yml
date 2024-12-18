@@ -29,12 +29,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-flutter-
         
-        #3 Setup Java
-      - name: Set Up Java
-        uses: actions/setup-java@v3.12.0
+        #3 Setup GraalVM (instead of Java)
+      - name: Set Up GraalVM
+        uses: actions/setup-java@v3
         with:
-          distribution: 'oracle'
-          java-version: '17'
+          distribution: 'graalvm'
+          java-version: '20'  # Update the version based on your needs
 
         #4 Setup Flutter
       - name: Set Up Flutter
