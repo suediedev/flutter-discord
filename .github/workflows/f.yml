@@ -99,26 +99,4 @@ jobs:
           name: ios_build
           path: build/ios/ipa
 
-        #14 Extract Version
-      - name: Extract version from pubspec.yaml
-        id: extract_version
-        run: |
-          version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
-          echo "VERSION=$version" >> $GITHUB_ENV
-        #15 Check if Tag Exists
-      - name: Check if Tag Exists
-        id: check_tag
-        run: |
-          tag_name="v${{ env.github.run_number }}"
-          if git tag -l | grep -q "$tag_name"; then
-            echo "TAG_EXISTS=true" >> $GITHUB_ENV
 
-        #16 Create Release if Tag Doesn't Exist
-      - name: Create Release
-        if: env.TAG_EXISTS == 'false'
-        uses: ncipollo/release-action@v1
-        with:
-          tag: v${{ env.github.run_number }}
-          token: ${{ secrets.TOKEN }}
-          artifacts: |
-            build/app/outputs/flutter-apk/app-release.apk
