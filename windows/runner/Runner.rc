@@ -89,14 +89,14 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "Gavnnat v2" "\0"
-            VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "Gavnnat v2" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2024 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "Gavnnat v2.exe" "\0"
-            VALUE "ProductName", "Gavnnat v2" "\0"
-            VALUE "ProductVersion", VERSION_AS_STRING "\0"
+            VALUE "CompanyName", "Catdrout Coded\0"
+            VALUE "FileDescription", "Gavnnat v2\0"
+            VALUE "FileVersion", "1.0.0\0"
+            VALUE "InternalName", "Gavnnat v2\0"
+            VALUE "LegalCopyright", "Copyright (C) 2024 Catdrout Coded. All rights reserved.\0"
+            VALUE "OriginalFilename", "gavnnat_v2.exe\0"
+            VALUE "ProductName", "Gavnnat v2\0"
+            VALUE "ProductVersion", "1.0.0\0"
         END
     END
     BLOCK "VarFileInfo"

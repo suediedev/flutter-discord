@@ -44,6 +44,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
+  msix: ^3.16.7
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
@@ -108,3 +109,16 @@ flutter_launcher_icons:
   image_path: "icon.png"
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "icon.png"
+
+msix_config:
+  display_name: Gavnnat v2
+  publisher_display_name: Catdrout Coded
+  identity_name: net.catdroutcoded.gavnnatv2
+  publisher: CN=CatdroutCoded
+  msix_version: 1.0.0.0
+  logo_path: windows/runner/resources/app_icon.ico
+  capabilities: internetClient
+  execution_alias: gavnnat_v2
+  sign_msix: true
+  certificate_path: CatdroutCoded.pfx
+  certificate_password: ""

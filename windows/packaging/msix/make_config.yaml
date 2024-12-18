@@ -1,0 +1,7 @@
+display_name: Gavnnat v2
+publisher_display_name: Catdrout Coded
+identity_name: net.catdroutcoded.gavnnatv2
+publisher: CN=Catdrout Coded
+msix_version: 1.0.0.0
+logo_path: C:\Users\Catdrout\Desktop\discord_native\windows\runner\resources\app_icon.ico
+capabilities: "internetClient"

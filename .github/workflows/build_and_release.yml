@@ -117,9 +117,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
           channel: 'stable'
@@ -130,20 +128,29 @@ jobs:
       
       - name: Install dependencies
         run: flutter pub get
-      
-      - name: Build Windows App
-        run: flutter build windows --release
-      
-      - name: Create ZIP
+        
+      - name: Install create-self-signed-cert tool
+        run: dotnet tool install --global dotnet-create-self-signed-cert
+        
+      - name: Create certificate
+        run: create-self-signed-cert -n "CatdroutCoded"
+        
+      - name: Build MSIX package
         run: |
-          cd build/windows/x64/runner/Release
-          7z a -tzip windows-release.zip *
-      
-      - name: Upload Windows Build Artifacts
-        uses: actions/upload-artifact@v3
+          flutter pub add --dev msix
+          flutter pub run msix:create
+        
+      - name: Upload Windows Build
+        uses: actions/upload-artifact@v2
         with:
-          name: windows-build
-          path: build/windows/x64/runner/Release/windows-release.zip
+          name: windows-msix
+          path: build/windows/runner/Release/gavnnat_v2.msix
+          
+      - name: Release Windows Build
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: build/windows/runner/Release/gavnnat_v2.msix
 
   build-linux:
     runs-on: ubuntu-latest
@@ -223,7 +230,7 @@ jobs:
             android-builds/*
             ios-build/*
             macos-build/*
-            windows-build/*
+            windows-msix/*
             linux-build/*
             web-build/*
           draft: false
