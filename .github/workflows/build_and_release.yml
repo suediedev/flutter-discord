@@ -86,32 +86,52 @@ jobs:
         run: flutter config --enable-macos-desktop
       
       - name: Install dependencies
-        run: |
-          brew install create-dmg
-          flutter pub get
+        run: flutter pub get
       
       - name: Build macOS App
         run: flutter build macos --release
       
+      - name: Install create-dmg
+        run: brew install create-dmg
+      
       - name: Create DMG
         run: |
-          cd build/macos/Build/Products/Release
+          APP_NAME="Gavnnat v2"
+          DMG_NAME="Gavnnat_v2"
+          APP_PATH="build/macos/Build/Products/Release/$APP_NAME.app"
+          DMG_PATH="build/macos/Build/Products/Release/$DMG_NAME.dmg"
+          
+          # Ensure the app exists
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Error: App not found at $APP_PATH"
+            ls -la build/macos/Build/Products/Release/
+            exit 1
+          fi
+          
+          # Create DMG
           create-dmg \
-            --volname "Gavnnat v2" \
+            --volname "$APP_NAME" \
+            --volicon "icon.png" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
-            --icon "gavnnatv2.app" 200 190 \
-            --hide-extension "gavnnatv2.app" \
+            --icon "$APP_NAME.app" 200 190 \
+            --hide-extension "$APP_NAME.app" \
             --app-drop-link 600 185 \
-            "Gavnnatv2.dmg" \
-            "gavnnatv2.app"
+            "$DMG_PATH" \
+            "$APP_PATH"
       
-      - name: Upload macOS Build Artifacts
-        uses: actions/upload-artifact@v3
+      - name: Upload macOS Build
+        uses: actions/upload-artifact@v2
         with:
           name: macos-build
-          path: build/macos/Build/Products/Release/Gavnnatv2.dmg
+          path: build/macos/Build/Products/Release/Gavnnat_v2.dmg
+          
+      - name: Release macOS Build
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: build/macos/Build/Products/Release/Gavnnat_v2.dmg
 
   build-windows:
     runs-on: windows-latest
