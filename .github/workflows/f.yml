@@ -18,6 +18,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Install Homebrew
+        run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
         #2 Cache Flutter SDK
       - name: Cache Flutter SDK
         uses: actions/cache@v3
@@ -28,13 +31,17 @@ jobs:
           key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
           restore-keys: |
             ${{ runner.os }}-flutter-
-        
-        #3 Setup GraalVM (instead of Java)
-      - name: Set Up GraalVM
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'graalvm'
-          java-version: '20'  # Update the version based on your needs
+
+        #3 Install GraalVM
+      - name: Install GraalVM
+        run: |
+          # Download and install GraalVM
+          brew install graalvm/tap/graalvm
+          
+          # Set GraalVM as the JAVA_HOME
+          echo "GRAALVM_HOME=$(brew --prefix graalvm)" >> $GITHUB_ENV
+          echo "JAVA_HOME=$GRAALVM_HOME" >> $GITHUB_ENV
+          echo "$JAVA_HOME/bin" >> $PATH
 
         #4 Setup Flutter
       - name: Set Up Flutter
